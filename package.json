@@ -1,0 +1,28 @@
+{
+  "name": "pi-notify-marker",
+  "version": "1.0.0",
+  "description": "Marker file plugin for Pi coding agent - create files when events occur",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "pi",
+    "pi-coding-agent",
+    "extension",
+    "notifications",
+    "markers"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
