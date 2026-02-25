@@ -29,6 +29,49 @@ The included script `./watch-and-notify.sh` watches the marker directory and sen
 
 ## Installation
 
+### Via Pi Package (Recommended)
+
+Install as a pi package using the `pi install` command:
+
+```bash
+pi install /path/to/pi-notify-marker
+```
+
+Verify installation:
+
+```bash
+pi list
+```
+
+To remove later:
+
+```bash
+pi remove /path/to/pi-notify-marker
+```
+
+### First Time Setup (Clone & Install)
+
+If you're cloning the repo for the first time:
+
+```bash
+# Clone the repository
+git clone https://github.com/arcanemachine/pi-notify-marker.git
+
+# Navigate to the project directory
+cd pi-notify-marker
+
+# Install dependencies (if needed)
+npm install
+
+# Build the extension (if needed)
+npm run build
+
+# Install as a pi package
+pi install /path/to/pi-notify-marker
+```
+
+### Manual Installation
+
 Copy the `dist/` directory to your Pi extensions folder:
 
 ```bash
