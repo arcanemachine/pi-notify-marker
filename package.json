@@ -20,7 +20,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@mariozechner/pi-coding-agent": "^1.0.0"
+    "@mariozechner/pi-coding-agent": "^0.55.0"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

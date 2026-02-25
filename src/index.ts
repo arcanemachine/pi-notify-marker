@@ -5,10 +5,11 @@
  * Creates marker files in a configurable directory when specific events occur.
  * Useful for external monitoring scripts to detect when Pi needs attention.
  *
- * Features:
- * - Creates marker files for session_idle, session_error, permission_required events
- * - Parent session only (no spam from child sessions)
- * - No terminal detection, no quiet hours, no sounds
+ * Creates marker files:
+ * - .pi/notify-marker-idle: Agent finished successfully
+ * - .pi/notify-marker-roadblock: Agent needs user input (user_bash event)
+ *
+ * These marker files can be monitored by external tools to trigger notifications.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -46,18 +47,6 @@ async function loadConfig(): Promise<MarkerConfig> {
   }
 }
 
-async function isParentSession(pi: ExtensionAPI, sessionID: string): Promise<boolean> {
-  // For Pi, we need to check if this is a parent session
-  // This is a simplified version - actual implementation may vary
-  try {
-    // Try to get session info
-    // Note: Pi's session manager API may differ from OpenCode
-    return true; // Assume parent if we can't determine
-  } catch {
-    return true;
-  }
-}
-
 async function createMarker(eventName: string): Promise<void> {
   try {
     await fs.mkdir(MARKER_DIR, { recursive: true });
@@ -68,44 +57,16 @@ async function createMarker(eventName: string): Promise<void> {
   }
 }
 
-async function handleSessionIdle(pi: ExtensionAPI, sessionID: string, config: MarkerConfig): Promise<void> {
-  if (!config.notifyChildSessions) {
-    const isParent = await isParentSession(pi, sessionID);
-    if (!isParent) return;
-  }
-  await createMarker("SESSION_IDLE");
-}
-
-async function handleSessionError(pi: ExtensionAPI, sessionID: string, config: MarkerConfig): Promise<void> {
-  if (!config.notifyChildSessions) {
-    const isParent = await isParentSession(pi, sessionID);
-    if (!isParent) return;
-  }
-  await createMarker("SESSION_ERROR");
-}
-
-async function handlePermissionRequired(config: MarkerConfig): Promise<void> {
-  await createMarker("PERMISSION_REQUIRED");
-}
-
 export default function (pi: ExtensionAPI) {
-  return async () => {
-    const config = await loadConfig();
+  const config = loadConfig();
 
-    pi.on("session_idle", async (event) => {
-      if (event.sessionID) {
-        await handleSessionIdle(pi, event.sessionID, config);
-      }
-    });
+  // Create marker when agent finishes
+  pi.on("agent_end", async () => {
+    await createMarker("AGENT_DONE");
+  });
 
-    pi.on("session_error", async (event) => {
-      if (event.sessionID) {
-        await handleSessionError(pi, event.sessionID, config);
-      }
-    });
-
-    pi.on("permission_required", async () => {
-      await handlePermissionRequired(config);
-    });
-  };
+  // Create marker when agent hits a roadblock (needs user input)
+  pi.on("user_bash", async () => {
+    await createMarker("ROADBLOCK");
+  });
 }
