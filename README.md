@@ -25,7 +25,19 @@ The included script `./watch-and-notify.sh` watches the marker directory and sen
 
 ## Installation
 
-### Clone & Install
+### From GitHub (Recommended)
+
+```bash
+pi install git:github.com/arcanemachine/pi-notify-marker
+```
+
+To update to the latest version:
+
+```bash
+pi update git:github.com/arcanemachine/pi-notify-marker
+```
+
+### From Local Clone
 
 ```bash
 git clone https://github.com/arcanemachine/pi-notify-marker.git
