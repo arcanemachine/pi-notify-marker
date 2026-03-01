@@ -15,8 +15,12 @@
     "pi-coding-agent",
     "extension",
     "notifications",
-    "markers"
+    "markers",
+    "pi-package"
   ],
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
   "author": "",
   "license": "MIT",
   "devDependencies": {
