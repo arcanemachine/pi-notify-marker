@@ -42,9 +42,10 @@ pi update git:github.com/arcanemachine/pi-notify-marker
 ```bash
 git clone https://github.com/arcanemachine/pi-notify-marker.git
 cd pi-notify-marker
-npm install
 pi install /path/to/pi-notify-marker
 ```
+
+No local `npm install` is required for normal usage.
 
 ## Usage
 
@@ -53,6 +54,16 @@ If you want desktop notifications when the agent finishes:
 1. Start Pi in the container.
 
 2. Run `watch-and-notify.sh` from the host.
+
+## Development install (optional)
+
+If you are editing the extension itself, install dev tooling only:
+
+```bash
+npm install --loglevel=warn
+```
+
+This package keeps `@mariozechner/pi-coding-agent` as an optional peer to avoid pulling a large dependency tree during normal installs.
 
 ## Directory config
 
