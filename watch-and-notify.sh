@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Customize marker directory with WATCH_DIR environment variable
-WATCH_DIR="${WATCH_DIR:-../../tmp/pi-notify-marker-files}"
+WATCH_DIR="${WATCH_DIR:-/tmp/pi-notify-marker-files}"
 
 # Ensure directory exists
 mkdir -p "$WATCH_DIR"

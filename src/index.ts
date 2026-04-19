@@ -10,8 +10,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import * as fs from "fs/promises";
 import * as path from "path";
 
-const MARKER_DIR =
-  process.env.MARKER_DIR || "/workspace/tmp/pi-notify-marker-files";
+const MARKER_DIR = process.env.MARKER_DIR || "/tmp/pi-notify-marker-files";
 
 async function createMarker(eventName: string): Promise<void> {
   try {
