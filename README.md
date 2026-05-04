@@ -90,3 +90,5 @@ PI_NOTIFY_MARKER_DIR="/path/to/some/dir" pi
 # Run watcher script pointing to the same directory
 PI_NOTIFY_MARKER_WATCH_DIR="/path/to/some/dir" ./watch-and-notify.sh
 ```
+
+Note: `~` may not be expanded in all environments. Prefer absolute paths. Relative paths and `$HOME/...` can also work, but make sure Pi and the watcher resolve to the same directory.
