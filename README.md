@@ -1,5 +1,9 @@
 # pi-notify-marker
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/arcanemachine/pi-notify-marker/main/logo.jpg" alt="pi-notify-marker logo" width="250" />
+</p>
+
 > Marker file plugin for Pi coding agent - create files when Pi events occur.
 
 A plugin for [Pi](https://github.com/badlogic/pi-mono) that creates marker files when specific events occur. Useful for external monitoring scripts to detect when the AI needs attention (e.g. when running Pi in a container where native OS notifications cannot be triggered).

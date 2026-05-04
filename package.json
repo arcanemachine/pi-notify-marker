@@ -24,9 +24,15 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/arcanemachine/pi-notify-marker/main/logo.jpg"
   },
-  "author": "",
+  "author": "Nicholas Moen",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arcanemachine/pi-notify-marker"
+  },
+  "homepage": "https://github.com/arcanemachine/pi-notify-marker",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^25.3.0",
