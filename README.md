@@ -85,8 +85,8 @@ This package keeps `@mariozechner/pi-coding-agent` as an optional peer to avoid 
 
 ```bash
 # Start Pi with custom marker directory
-MARKER_DIR="/path/to/some/dir" pi
+PI_NOTIFY_MARKER_DIR="/path/to/some/dir" pi
 
 # Run watcher script pointing to the same directory
-WATCH_DIR="/path/to/some/dir" ./watch-and-notify.sh
+PI_NOTIFY_MARKER_WATCH_DIR="/path/to/some/dir" ./watch-and-notify.sh
 ```
