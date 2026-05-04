@@ -41,6 +41,18 @@ To update to the latest version:
 pi update git:github.com/arcanemachine/pi-notify-marker
 ```
 
+### From npm
+
+```bash
+pi install npm:@arcanemachine/pi-notify-marker
+```
+
+To update to the latest version:
+
+```bash
+pi update npm:@arcanemachine/pi-notify-marker
+```
+
 ### From Local Clone
 
 ```bash
