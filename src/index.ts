@@ -6,7 +6,7 @@
  * Useful for external monitoring scripts to detect when Pi needs attention.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as fs from "fs/promises";
 import * as path from "path";
 

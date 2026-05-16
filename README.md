@@ -79,7 +79,7 @@ If you are editing the extension itself, install dev tooling only:
 npm install --loglevel=warn
 ```
 
-This package keeps `@mariozechner/pi-coding-agent` as an optional peer to avoid pulling a large dependency tree during normal installs.
+This package keeps `@earendil-works/pi-coding-agent` as an optional peer to avoid pulling a large dependency tree during normal installs.
 
 ## Directory config
 
