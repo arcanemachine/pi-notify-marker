@@ -47,7 +47,7 @@ Key product decisions (see `plans/` for rationale):
 | 02 | correct-event-behavior | done | dab9256 |
 | 03 | add-marker-isolation | done | 7aa715e |
 | 04 | add-session-attribution | done | ae49b25 |
-| 05 | add-pause-state | not started | — |
+| 05 | add-pause-state | in progress | — |
 | 06 | add-commands | not started | — |
 | 07 | add-paused-by-default | not started | — |
 | 08 | harden-watcher | not started | — |
@@ -75,3 +75,4 @@ Key product decisions (see `plans/` for rationale):
 - `dab9256` — item 02 done: swapped `agent_end`→`agent_settled`; removed `user_bash`/ROADBLOCK; updated doc + inline comments. Prettier wrapped a long `PI_NOTIFY_MARKER_DIR` line. tsc passes; no stale refs.
 - `7aa715e` — item 03 done: `createMarker(eventPrefix)` builds `<prefix>.<randomUUID()>` with `{flag:"wx"}`; payload unchanged. tsc + prettier pass.
 - `ae49b25` — item 04 done: marker contents are now plain-text session label via `pi.getSessionName() ?? ctx.sessionManager.getSessionId()`; timestamp JSON removed. createMarker takes `(eventPrefix, label)`. tsc + prettier pass.
+- item 05: started.
