@@ -48,7 +48,7 @@ Key product decisions (see `plans/` for rationale):
 | 03 | add-marker-isolation | done | 7aa715e |
 | 04 | add-session-attribution | done | ae49b25 |
 | 05 | add-pause-state | done | 85e9ab8 |
-| 06 | add-commands | in progress | — |
+| 06 | add-commands | done | f635c68 |
 | 07 | add-paused-by-default | not started | — |
 | 08 | harden-watcher | not started | — |
 | 09 | add-tests | not started | — |
@@ -76,4 +76,4 @@ Key product decisions (see `plans/` for rationale):
 - `7aa715e` — item 03 done: `createMarker(eventPrefix)` builds `<prefix>.<randomUUID()>` with `{flag:"wx"}`; payload unchanged. tsc + prettier pass.
 - `ae49b25` — item 04 done: marker contents are now plain-text session label via `pi.getSessionName() ?? ctx.sessionManager.getSessionId()`; timestamp JSON removed. createMarker takes `(eventPrefix, label)`. tsc + prettier pass.
 - `85e9ab8` — item 05 done: pause state via custom entry `pi-notify-marker:state`; `session_start` restores (startup/reload/resume) or resets (new/fork, with persisted reset on fork). `agent_settled` suppresses when paused. Default active until item 07. tsc + prettier pass.
-- item 06: started.
+- `f635c68` — item 06 done: registered `/notify-marker:pause`, `:unpause`, `:status` via `pi.registerCommand`; pause/unpause set override + append state + `ctx.ui.notify`; status reports explicit/default via `statusText`. tsc + prettier pass.
