@@ -49,8 +49,7 @@ Key product decisions (see `plans/` for rationale):
 | 04 | add-session-attribution | done | ae49b25 |
 | 05 | add-pause-state | done | 85e9ab8 |
 | 06 | add-commands | done | f635c68 |
-| 07 | add-paused-by-default | done | cecc24e |
-| 08 | harden-watcher | not started | — |
+| 08 | harden-watcher | in progress | — |
 | 09 | add-tests | done | 0be7b8c |
 | 10 | update-documentation | not started | — |
 | 11 | verify-and-finish | not started | — |
@@ -80,3 +79,4 @@ Key product decisions (see `plans/` for rationale):
 - `cecc24e` — item 07 done: `defaultState()` reads `PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT` (truthy `1|true|yes|on`, case-insensitive, trimmed) at call time, not module-cached. Effective-state path uses it. tsc + prettier pass.
 - item 09: started. Source tweak: marker dir resolved lazily (`markerDir()`) for runtime config + testability (commit ce6f4f0). test/watch-and-notify.test.ts deferred to item 08.
 - `0be7b8c` — item 09 done: added `test/index.test.ts` (40 tests, node:test via tsx) covering registration, markers, attribution, state restoration, commands, paused-by-default; `tsconfig.test.json` enables `allowImportingTsExtensions`. `npm test` passes (40/40). Watcher test added under item 08.
+- item 08: started. Runtime-verified `agent_settled`→unique marker (one per turn, correct), session-ID fallback, pause/unpause/status in a real Pi session (2 markers for 2 turns, expected).
