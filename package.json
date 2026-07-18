@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc --watch"
+    "watch": "tsc --watch",
+    "test": "tsc -p tsconfig.test.json && node --import tsx --test test/*.test.ts"
   },
   "files": [
     "src",
@@ -35,7 +36,9 @@
   "homepage": "https://github.com/arcanemachine/pi-notify-marker",
   "license": "MIT",
   "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.80.10",
     "@types/node": "^25.3.0",
+    "tsx": "^4.23.1",
     "typescript": "^5.7.2"
   },
   "peerDependencies": {
