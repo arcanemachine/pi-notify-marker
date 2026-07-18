@@ -51,7 +51,7 @@ Key product decisions (see `plans/` for rationale):
 | 06 | add-commands | done | f635c68 |
 | 08 | harden-watcher | done | 4d91b9d |
 | 09 | add-tests | done | 0be7b8c |
-| 10 | update-documentation | in progress | — |
+| 10 | update-documentation | done | 9bcbdc8 |
 | 11 | verify-and-finish | not started | — |
 
 ## Workflow rules
@@ -81,4 +81,4 @@ Key product decisions (see `plans/` for rationale):
 - `0be7b8c` — item 09 done: added `test/index.test.ts` (40 tests, node:test via tsx) covering registration, markers, attribution, state restoration, commands, paused-by-default; `tsconfig.test.json` enables `allowImportingTsExtensions`. `npm test` passes (40/40). Watcher test added under item 08.
 - item 08: started. Runtime-verified `agent_settled`→unique marker (one per turn, correct), session-ID fallback, pause/unpause/status in a real Pi session (2 markers for 2 turns, expected).
 - `4d91b9d` — item 08 done: rewrote `watch-and-notify.sh` (flock single-instance guard on `.watcher.lock`, `close_write`, `marker_event` suffix stripping, session-label reader with `unknown` fallback, dotfile ignoring, `rm -f --` quoting, consistent title/body across inotify+polling); added `test/watch-and-notify.test.ts` (6 tests via fake notify-send/inotifywait/flock + symlinked coreutils, `BASH_ENV`/`ENV` cleared). `npm test` 46/46.
-- item 10: started.
+- `9bcbdc8` — item 10 done: README rewrite — settled events table (no ROADBLOCK), unique-suffix filenames, plain-text session attribution, commands table + state semantics, `PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT`, requirements (0.80.10+, notify-send, optional inotifywait/flock), dev install incl. `npm test`. Prettier-formatted.
