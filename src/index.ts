@@ -7,19 +7,24 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { randomUUID } from "node:crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
 
 const PI_NOTIFY_MARKER_DIR =
   process.env.PI_NOTIFY_MARKER_DIR || "/tmp/pi-notify-marker-files";
 
-async function createMarker(eventName: string): Promise<void> {
+async function createMarker(eventPrefix: string): Promise<void> {
   try {
     await fs.mkdir(PI_NOTIFY_MARKER_DIR, { recursive: true });
-    const markerPath = path.join(PI_NOTIFY_MARKER_DIR, eventName);
+    const markerPath = path.join(
+      PI_NOTIFY_MARKER_DIR,
+      `${eventPrefix}.${randomUUID()}`,
+    );
     await fs.writeFile(
       markerPath,
       JSON.stringify({ created: new Date().toISOString() }),
+      { flag: "wx" },
     );
   } catch {
     // Silently fail - markers are best-effort
