@@ -45,7 +45,7 @@ Key product decisions (see `plans/` for rationale):
 | 00 | Plans + PLAN.md | done | e94cb50 |
 | 01 | update-development-tooling | done | dbc7cd1 |
 | 02 | correct-event-behavior | done | dab9256 |
-| 03 | add-marker-isolation | in progress | — |
+| 03 | add-marker-isolation | done | 7aa715e |
 | 04 | add-session-attribution | not started | — |
 | 05 | add-pause-state | not started | — |
 | 06 | add-commands | not started | — |
@@ -73,4 +73,4 @@ Key product decisions (see `plans/` for rationale):
 - `e94cb50` — Committed plans + PLAN.md (item 00).
 - `dbc7cd1` — item 01 done: added dev deps `@earendil-works/pi-coding-agent ^0.80.10` and `tsx ^4.23.1`, `test` script, `tsconfig.test.json`. Verified `agent_settled` resolves; prod + test tsc pass; no lockfile.
 - `dab9256` — item 02 done: swapped `agent_end`→`agent_settled`; removed `user_bash`/ROADBLOCK; updated doc + inline comments. Prettier wrapped a long `PI_NOTIFY_MARKER_DIR` line. tsc passes; no stale refs.
-- item 03: started.
+- `7aa715e` — item 03 done: `createMarker(eventPrefix)` builds `<prefix>.<randomUUID()>` with `{flag:"wx"}`; payload unchanged. tsc + prettier pass.
