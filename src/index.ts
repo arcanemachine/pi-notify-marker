@@ -51,9 +51,16 @@ function isMarkerStateData(data: unknown): data is MarkerStateEntry {
   return override === "active" || override === "paused" || override === null;
 }
 
-/** Configured default state for sessions with no explicit override. */
+/**
+ * Configured default state for sessions with no explicit override.
+ * `PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT` truthy (1|true|yes|on) → paused.
+ */
 function defaultState(): "active" | "paused" {
-  return "active";
+  const raw =
+    process.env.PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
+    ? "paused"
+    : "active";
 }
 
 function statusText(override: Override): string {
