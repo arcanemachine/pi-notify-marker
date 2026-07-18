@@ -16,8 +16,12 @@ import { randomUUID } from "node:crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
 
-const PI_NOTIFY_MARKER_DIR =
-  process.env.PI_NOTIFY_MARKER_DIR || "/tmp/pi-notify-marker-files";
+const DEFAULT_MARKER_DIR = "/tmp/pi-notify-marker-files";
+
+/** Resolve the marker directory at call time so env changes apply without reload. */
+function markerDir(): string {
+  return process.env.PI_NOTIFY_MARKER_DIR || DEFAULT_MARKER_DIR;
+}
 
 /** Custom session entry type persisting explicit pause state. */
 const STATE_CUSTOM_TYPE = "pi-notify-marker:state";
@@ -34,11 +38,9 @@ type Override = "active" | "paused" | null;
 
 async function createMarker(eventPrefix: string, label: string): Promise<void> {
   try {
-    await fs.mkdir(PI_NOTIFY_MARKER_DIR, { recursive: true });
-    const markerPath = path.join(
-      PI_NOTIFY_MARKER_DIR,
-      `${eventPrefix}.${randomUUID()}`,
-    );
+    await fs.mkdir(markerDir(), { recursive: true });
+    const dir = markerDir();
+    const markerPath = path.join(dir, `${eventPrefix}.${randomUUID()}`);
     await fs.writeFile(markerPath, label, { flag: "wx" });
   } catch {
     // Silently fail - markers are best-effort
