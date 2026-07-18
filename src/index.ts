@@ -14,18 +14,14 @@ import * as path from "path";
 const PI_NOTIFY_MARKER_DIR =
   process.env.PI_NOTIFY_MARKER_DIR || "/tmp/pi-notify-marker-files";
 
-async function createMarker(eventPrefix: string): Promise<void> {
+async function createMarker(eventPrefix: string, label: string): Promise<void> {
   try {
     await fs.mkdir(PI_NOTIFY_MARKER_DIR, { recursive: true });
     const markerPath = path.join(
       PI_NOTIFY_MARKER_DIR,
       `${eventPrefix}.${randomUUID()}`,
     );
-    await fs.writeFile(
-      markerPath,
-      JSON.stringify({ created: new Date().toISOString() }),
-      { flag: "wx" },
-    );
+    await fs.writeFile(markerPath, label, { flag: "wx" });
   } catch {
     // Silently fail - markers are best-effort
   }
@@ -33,7 +29,8 @@ async function createMarker(eventPrefix: string): Promise<void> {
 
 export default function (pi: ExtensionAPI) {
   // Create marker when the agent run settles
-  pi.on("agent_settled", async () => {
-    await createMarker("AGENT_DONE");
+  pi.on("agent_settled", async (_event, ctx) => {
+    const label = pi.getSessionName() ?? ctx.sessionManager.getSessionId();
+    await createMarker("AGENT_DONE", label);
   });
 }
