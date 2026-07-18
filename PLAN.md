@@ -43,7 +43,7 @@ Key product decisions (see `plans/` for rationale):
 | # | Item | Status | Commit |
 | --- | --- | --- | --- |
 | 00 | Plans + PLAN.md | done | e94cb50 |
-| 01 | update-development-tooling | in progress | — |
+| 01 | update-development-tooling | done | dbc7cd1 |
 | 02 | correct-event-behavior | not started | — |
 | 03 | add-marker-isolation | not started | — |
 | 04 | add-session-attribution | not started | — |
@@ -71,4 +71,4 @@ Key product decisions (see `plans/` for rationale):
 ### Progress log
 
 - `e94cb50` — Committed plans + PLAN.md (item 00).
-- item 01: started.
+- `dbc7cd1` — item 01 done: added dev deps `@earendil-works/pi-coding-agent ^0.80.10` and `tsx ^4.23.1`, `test` script, `tsconfig.test.json`. Verified `agent_settled` resolves; prod + test tsc pass; no lockfile.
