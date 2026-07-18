@@ -51,6 +51,16 @@ function isMarkerStateData(data: unknown): data is MarkerStateEntry {
   return override === "active" || override === "paused" || override === null;
 }
 
+/** Configured default state for sessions with no explicit override. */
+function defaultState(): "active" | "paused" {
+  return "active";
+}
+
+function statusText(override: Override): string {
+  if (override === "active" || override === "paused") return override;
+  return `${defaultState()} (default)`;
+}
+
 /**
  * Restore the latest valid notify-marker override from the session entry list,
  * scanning newest-first. Returns `null` when no valid entry exists.
@@ -97,9 +107,38 @@ export default function (pi: ExtensionAPI) {
 
   // Create marker when the agent run settles, unless this session is paused.
   pi.on("agent_settled", async (_event, ctx) => {
-    const effective = override ?? "active";
+    const effective = override ?? defaultState();
     if (effective === "paused") return;
     const label = pi.getSessionName() ?? ctx.sessionManager.getSessionId();
     await createMarker("AGENT_DONE", label);
+  });
+
+  pi.registerCommand("notify-marker:pause", {
+    description: "Pause pi-notify-marker completion notifications.",
+    handler: async (_args, ctx) => {
+      override = "paused";
+      pi.appendEntry<MarkerStateEntry>(STATE_CUSTOM_TYPE, {
+        override: "paused",
+      });
+      ctx.ui.notify("notify-marker: paused", "info");
+    },
+  });
+
+  pi.registerCommand("notify-marker:unpause", {
+    description: "Unpause pi-notify-marker completion notifications.",
+    handler: async (_args, ctx) => {
+      override = "active";
+      pi.appendEntry<MarkerStateEntry>(STATE_CUSTOM_TYPE, {
+        override: "active",
+      });
+      ctx.ui.notify("notify-marker: unpaused", "info");
+    },
+  });
+
+  pi.registerCommand("notify-marker:status", {
+    description: "Show pi-notify-marker pause state.",
+    handler: async (_args, ctx) => {
+      ctx.ui.notify(statusText(override), "info");
+    },
   });
 }
