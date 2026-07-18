@@ -49,7 +49,7 @@ Key product decisions (see `plans/` for rationale):
 | 04 | add-session-attribution | done | ae49b25 |
 | 05 | add-pause-state | done | 85e9ab8 |
 | 06 | add-commands | done | f635c68 |
-| 07 | add-paused-by-default | in progress | — |
+| 07 | add-paused-by-default | done | cecc24e |
 | 08 | harden-watcher | not started | — |
 | 09 | add-tests | not started | — |
 | 10 | update-documentation | not started | — |
@@ -77,4 +77,4 @@ Key product decisions (see `plans/` for rationale):
 - `ae49b25` — item 04 done: marker contents are now plain-text session label via `pi.getSessionName() ?? ctx.sessionManager.getSessionId()`; timestamp JSON removed. createMarker takes `(eventPrefix, label)`. tsc + prettier pass.
 - `85e9ab8` — item 05 done: pause state via custom entry `pi-notify-marker:state`; `session_start` restores (startup/reload/resume) or resets (new/fork, with persisted reset on fork). `agent_settled` suppresses when paused. Default active until item 07. tsc + prettier pass.
 - `f635c68` — item 06 done: registered `/notify-marker:pause`, `:unpause`, `:status` via `pi.registerCommand`; pause/unpause set override + append state + `ctx.ui.notify`; status reports explicit/default via `statusText`. tsc + prettier pass.
-- item 07: started.
+- `cecc24e` — item 07 done: `defaultState()` reads `PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT` (truthy `1|true|yes|on`, case-insensitive, trimmed) at call time, not module-cached. Effective-state path uses it. tsc + prettier pass.
