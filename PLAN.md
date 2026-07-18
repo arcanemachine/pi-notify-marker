@@ -42,8 +42,8 @@ Key product decisions (see `plans/` for rationale):
 
 | # | Item | Status | Commit |
 | --- | --- | --- | --- |
-| 00 | Plans + PLAN.md | pending | — |
-| 01 | update-development-tooling | not started | — |
+| 00 | Plans + PLAN.md | done | e94cb50 |
+| 01 | update-development-tooling | in progress | — |
 | 02 | correct-event-behavior | not started | — |
 | 03 | add-marker-isolation | not started | — |
 | 04 | add-session-attribution | not started | — |
@@ -70,4 +70,5 @@ Key product decisions (see `plans/` for rationale):
 
 ### Progress log
 
-(Updated as items complete.)
+- `e94cb50` — Committed plans + PLAN.md (item 00).
+- item 01: started.
