@@ -10,6 +10,8 @@ A plugin for [Pi](https://github.com/badlogic/pi-mono) that creates marker files
 
 This project is similar to [opencode-notify-marker](https://github.com/arcanemachine/opencode-notify-marker) but for Pi coding agent.
 
+> Like this extension? See [my other Pi extensions](https://github.com/arcanemachine/pi-projects).
+
 ## Why This Exists
 
 So that you can run Pi in a container, and still have a means of getting OS notifications on the host.
