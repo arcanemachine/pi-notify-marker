@@ -1,6 +1,6 @@
 {
   "name": "@arcanemachine/pi-notify-marker",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Marker file plugin for Pi coding agent - create files when events occur",
   "type": "module",
   "scripts": {
