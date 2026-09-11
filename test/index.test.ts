@@ -57,6 +57,7 @@ function makeStateEntry(
 class Harness {
   sessionName: string | undefined = undefined;
   sessionId = randomUUID();
+  projectTrusted = true;
   entries: SessionEntry[] = [];
   appendCalls: AppendedEntry[] = [];
   notifies: NotifiedCall[] = [];
@@ -64,6 +65,8 @@ class Harness {
   commands: Record<string, MockCommand | undefined> = {};
 
   readonly ctx = {
+    cwd: "/test/project",
+    isProjectTrusted: () => this.projectTrusted,
     sessionManager: {
       getSessionId: () => this.sessionId,
       getEntries: (): SessionEntry[] => [...this.entries],
@@ -143,14 +146,21 @@ function makeStateEntryUnknown(data: unknown, index: number): SessionEntry {
 
 let savedEnv: string | undefined;
 let savedPausedByDefault: string | undefined;
+let savedAgentDir: string | undefined;
 let tempDir: string;
+let agentDir: string;
+let projectDir: string;
 
 beforeEach(async () => {
   savedEnv = process.env.PI_NOTIFY_MARKER_DIR;
   savedPausedByDefault = process.env.PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT;
+  savedAgentDir = process.env.PI_CODING_AGENT_DIR;
   delete process.env.PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT;
   tempDir = await mkdtemp(join(tmpdir(), "pnm-test-"));
+  agentDir = await mkdtemp(join(tmpdir(), "pnm-agent-"));
+  projectDir = await mkdtemp(join(tmpdir(), "pnm-project-"));
   process.env.PI_NOTIFY_MARKER_DIR = tempDir;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
 });
 
 afterEach(async () => {
@@ -164,12 +174,19 @@ afterEach(async () => {
   } else {
     process.env.PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT = savedPausedByDefault;
   }
+  if (savedAgentDir === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = savedAgentDir;
+  }
   await rm(tempDir, { recursive: true, force: true });
+  await rm(agentDir, { recursive: true, force: true });
+  await rm(projectDir, { recursive: true, force: true });
 });
 
 async function markerFiles(): Promise<string[]> {
   const all = await readdir(tempDir);
-  return all.filter((f) => f.startsWith("AGENT_DONE."));
+  return all.filter((f) => f === "AGENT_DONE");
 }
 
 describe("registration and lifecycle", () => {
@@ -190,29 +207,112 @@ describe("registration and lifecycle", () => {
   });
 });
 
+describe("settings", () => {
+  async function writeGlobalSettings(value: unknown): Promise<void> {
+    await writeFile(
+      join(agentDir, "settings.json"),
+      JSON.stringify(value),
+    );
+  }
+
+  async function writeProjectSettings(value: unknown): Promise<void> {
+    await mkdir(join(projectDir, ".pi"), { recursive: true });
+    await writeFile(
+      join(projectDir, ".pi", "settings.json"),
+      JSON.stringify(value),
+    );
+  }
+
+  it("uses the global pausedByDefault setting", async () => {
+    await writeGlobalSettings({
+      "pi-notify-marker": { pausedByDefault: true },
+    });
+    const h = new Harness();
+    await h.fireSessionStart("new");
+    await h.fireSettled();
+    assert.equal((await markerFiles()).length, 0);
+  });
+
+  it("lets a trusted project setting override the global setting", async () => {
+    await writeGlobalSettings({
+      "pi-notify-marker": { pausedByDefault: true },
+    });
+    await writeProjectSettings({
+      "pi-notify-marker": { pausedByDefault: false },
+    });
+    const h = new Harness();
+    h.ctx.cwd = projectDir;
+    await h.fireSessionStart("new");
+    await h.fireSettled();
+    assert.equal((await markerFiles()).length, 1);
+  });
+
+  it("ignores an untrusted project setting", async () => {
+    await writeGlobalSettings({
+      "pi-notify-marker": { pausedByDefault: false },
+    });
+    await writeProjectSettings({
+      "pi-notify-marker": { pausedByDefault: true },
+    });
+    const h = new Harness();
+    h.ctx.cwd = projectDir;
+    h.projectTrusted = false;
+    await h.fireSessionStart("new");
+    await h.fireSettled();
+    assert.equal((await markerFiles()).length, 1);
+  });
+
+  it("uses the environment before settings", async () => {
+    await writeGlobalSettings({
+      "pi-notify-marker": { pausedByDefault: true },
+    });
+    process.env.PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT = "0";
+    const h = new Harness();
+    await h.fireSessionStart("new");
+    await h.fireSettled();
+    assert.equal((await markerFiles()).length, 1);
+  });
+
+  it("warns and falls back when the setting is invalid", async () => {
+    await writeGlobalSettings({
+      "pi-notify-marker": { pausedByDefault: "yes" },
+    });
+    const h = new Harness();
+    await h.fireSessionStart("new");
+    await h.fireSettled();
+    assert.equal((await markerFiles()).length, 1);
+    assert.ok(
+      h.notifies.some(
+        (notification) =>
+          notification.type === "warning" &&
+          notification.message.includes("pausedByDefault must be a boolean"),
+      ),
+    );
+  });
+});
+
 describe("marker behavior", () => {
-  it("creates the directory and one uniquely-named marker per settled event", async () => {
+  it("creates one metadata marker for settled events", async () => {
     const h = new Harness();
     await h.fireSettled();
     await h.fireSettled();
     const files = await markerFiles();
-    assert.equal(files.length, 2);
-    assert.equal(new Set(files).size, 2);
-    for (const f of files) {
-      assert.match(f, /^AGENT_DONE\.[0-9a-f-]{36}$/);
-    }
+    assert.deepEqual(files, ["AGENT_DONE"]);
+    const metadata = await readFile(join(tempDir, "AGENT_DONE"), "utf8");
+    assert.match(metadata, /^Event: AGENT_DONE$/m);
+    assert.match(metadata, new RegExp(`^Session: ${h.sessionId}$`, "m"));
+    assert.match(metadata, new RegExp(`^Session ID: ${h.sessionId}$`, "m"));
+    assert.doesNotMatch(metadata, /Working-Directory|Settled-At|Writer-Hostname|Writer-PID/);
   });
 
-  it("concurrent settled events do not collide", async () => {
+  it("concurrent settled events coalesce into one marker", async () => {
     const h = new Harness();
     const n = 20;
     await Promise.all(Array.from({ length: n }, () => h.fireSettled()));
-    const files = await markerFiles();
-    assert.equal(files.length, n);
-    assert.equal(new Set(files).size, n);
+    assert.deepEqual(await markerFiles(), ["AGENT_DONE"]);
   });
 
-  it("preserves pre-existing files (exclusive creation)", async () => {
+  it("preserves pre-existing files", async () => {
     await writeFile(join(tempDir, "pre-existing.txt"), "keep");
     const h = new Harness();
     await h.fireSettled();
@@ -242,7 +342,7 @@ describe("session attribution", () => {
     const files = await markerFiles();
     assert.equal(files.length, 1);
     const content = await readFile(join(tempDir, files[0]), "utf8");
-    assert.equal(content, "my special session");
+    assert.match(content, /^Session: my special session$/m);
   });
 
   it("falls back to the session id when no name", async () => {
@@ -250,7 +350,7 @@ describe("session attribution", () => {
     await h.fireSettled();
     const files = await markerFiles();
     const content = await readFile(join(tempDir, files[0]), "utf8");
-    assert.equal(content, h.sessionId);
+    assert.match(content, new RegExp(`^Session: ${h.sessionId}$`, "m"));
   });
 
   it("uses the latest name after rename between events", async () => {
@@ -259,13 +359,9 @@ describe("session attribution", () => {
     await h.fireSettled();
     h.sessionName = "new name";
     await h.fireSettled();
-    const files = await markerFiles();
-    assert.equal(files.length, 2);
-    const contents = await Promise.all(
-      files.sort().map((f) => readFile(join(tempDir, f), "utf8")),
-    );
-    assert.ok(contents.includes("old name"));
-    assert.ok(contents.includes("new name"));
+    const metadata = await readFile(join(tempDir, "AGENT_DONE"), "utf8");
+    assert.match(metadata, /^Session: new name$/m);
+    assert.doesNotMatch(metadata, /^Session: old name$/m);
   });
 
   it("names with spaces remain intact", async () => {
@@ -274,7 +370,7 @@ describe("session attribution", () => {
     await h.fireSettled();
     const files = await markerFiles();
     const content = await readFile(join(tempDir, files[0]), "utf8");
-    assert.equal(content, "  spaced out  ");
+    assert.match(content, /^Session:   spaced out  $/m);
   });
 });
 

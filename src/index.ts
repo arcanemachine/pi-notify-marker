@@ -6,17 +6,21 @@
  * Useful for external monitoring scripts to detect when the agent has finished.
  */
 
-import type {
-  CustomEntry,
-  ExtensionAPI,
-  SessionEntry,
-  SessionStartEvent,
+import {
+  getAgentDir,
+  SettingsManager,
+  type CustomEntry,
+  type ExtensionAPI,
+  type SessionEntry,
+  type SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
 import * as fs from "fs/promises";
 import * as path from "path";
 
 const DEFAULT_MARKER_DIR = "/tmp/pi-notify-marker-files";
+const SETTINGS_KEY = "pi-notify-marker";
+const PAUSED_BY_DEFAULT_KEY = "pausedByDefault";
 
 /** Resolve the marker directory at call time so env changes apply without reload. */
 function markerDir(): string {
@@ -36,14 +40,34 @@ interface MarkerStateEntry {
 
 type Override = "active" | "paused" | null;
 
-async function createMarker(eventPrefix: string, label: string): Promise<void> {
+function escapeMetadataValue(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r/g, "\\r")
+    .replace(/\n/g, "\\n");
+}
+
+function markerMetadata(sessionId: string, sessionLabel: string): string {
+  return [
+    "Event: AGENT_DONE",
+    `Session: ${escapeMetadataValue(sessionLabel)}`,
+    `Session ID: ${escapeMetadataValue(sessionId)}`,
+    "",
+  ].join("\n");
+}
+
+async function createMarker(metadata: string): Promise<void> {
+  const dir = markerDir();
+  const markerPath = path.join(dir, "AGENT_DONE");
+  const tempPath = path.join(dir, `.AGENT_DONE.tmp.${randomUUID()}`);
+
   try {
-    await fs.mkdir(markerDir(), { recursive: true });
-    const dir = markerDir();
-    const markerPath = path.join(dir, `${eventPrefix}.${randomUUID()}`);
-    await fs.writeFile(markerPath, label, { flag: "wx" });
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(tempPath, metadata, { flag: "wx" });
+    await fs.rename(tempPath, markerPath);
   } catch {
     // Silently fail - markers are best-effort
+    await fs.rm(tempPath, { force: true }).catch(() => undefined);
   }
 }
 
@@ -53,16 +77,103 @@ function isMarkerStateData(data: unknown): data is MarkerStateEntry {
   return override === "active" || override === "paused" || override === null;
 }
 
-/**
- * Configured default state for sessions with no explicit override.
- * `PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT` truthy (1|true|yes|on) → paused.
- */
+/** Resolve the configured default state for sessions with no explicit override. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function environmentPausedByDefault(): boolean | undefined {
+  const raw = process.env.PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT;
+  if (raw === undefined) return undefined;
+  const normalized = raw.trim().toLowerCase();
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  );
+}
+
+function readPausedByDefault(
+  settings: unknown,
+  scope: string,
+  warnings: string[],
+): boolean | undefined {
+  if (!isRecord(settings)) return undefined;
+  const namespace = settings[SETTINGS_KEY];
+  if (namespace === undefined) return undefined;
+  if (!isRecord(namespace)) {
+    warnings.push(`${scope}.${SETTINGS_KEY} must be an object`);
+    return undefined;
+  }
+
+  for (const key of Object.keys(namespace)) {
+    if (key !== PAUSED_BY_DEFAULT_KEY) {
+      warnings.push(
+        `${scope}.${SETTINGS_KEY} has unsupported key ${JSON.stringify(key)}`,
+      );
+    }
+  }
+
+  const value = namespace[PAUSED_BY_DEFAULT_KEY];
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") {
+    warnings.push(
+      `${scope}.${SETTINGS_KEY}.${PAUSED_BY_DEFAULT_KEY} must be a boolean`,
+    );
+    return undefined;
+  }
+  return value;
+}
+
+function loadConfiguredPausedByDefault(ctx: {
+  cwd: string;
+  isProjectTrusted: () => boolean;
+  ui: { notify(message: string, type?: "info" | "warning" | "error"): void };
+}): boolean | undefined {
+  const warnings: string[] = [];
+  try {
+    const projectTrusted = ctx.isProjectTrusted();
+    const settings = SettingsManager.create(ctx.cwd, getAgentDir(), {
+      projectTrusted,
+    });
+    for (const { scope, error } of settings.drainErrors()) {
+      warnings.push(`could not read ${scope} settings: ${error.message}`);
+    }
+
+    const globalValue = readPausedByDefault(
+      settings.getGlobalSettings(),
+      "global settings",
+      warnings,
+    );
+    const projectValue = projectTrusted
+      ? readPausedByDefault(
+          settings.getProjectSettings(),
+          "trusted project settings",
+          warnings,
+        )
+      : undefined;
+
+    for (const warning of warnings) {
+      ctx.ui.notify(`notify-marker: ${warning}`, "warning");
+    }
+    return projectValue ?? globalValue;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    ctx.ui.notify(
+      `notify-marker: could not load settings: ${message}`,
+      "warning",
+    );
+    return undefined;
+  }
+}
+
+let configuredPausedByDefault: boolean | undefined;
+
 function defaultState(): "active" | "paused" {
-  const raw =
-    process.env.PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT?.trim().toLowerCase();
-  return raw === "1" || raw === "true" || raw === "yes" || raw === "on"
-    ? "paused"
-    : "active";
+  const configured =
+    environmentPausedByDefault() ?? configuredPausedByDefault ?? false;
+  return configured ? "paused" : "active";
 }
 
 function statusText(override: Override): string {
@@ -94,6 +205,8 @@ export default function (pi: ExtensionAPI) {
   // to the default for new/fork. For forks, persist a reset entry if the forked
   // session inherited an explicit override, so a later reload cannot resurrect it.
   pi.on("session_start", async (event: SessionStartEvent, ctx) => {
+    configuredPausedByDefault = loadConfiguredPausedByDefault(ctx);
+
     if (
       event.reason === "startup" ||
       event.reason === "reload" ||
@@ -118,8 +231,9 @@ export default function (pi: ExtensionAPI) {
   pi.on("agent_settled", async (_event, ctx) => {
     const effective = override ?? defaultState();
     if (effective === "paused") return;
-    const label = pi.getSessionName() ?? ctx.sessionManager.getSessionId();
-    await createMarker("AGENT_DONE", label);
+    const sessionId = ctx.sessionManager.getSessionId();
+    const sessionLabel = pi.getSessionName() ?? sessionId;
+    await createMarker(markerMetadata(sessionId, sessionLabel));
   });
 
   pi.registerCommand("notify-marker:pause", {

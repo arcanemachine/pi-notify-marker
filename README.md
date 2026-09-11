@@ -18,11 +18,11 @@ So that you can run Pi in a container, and still have a means of getting OS noti
 
 ## How It Works
 
-When a Pi run settles (no automatic retry, compaction recovery, or queued continuation left), the plugin creates a uniquely named marker file in a configurable directory.
+When a Pi run settles (no automatic retry, compaction recovery, or queued continuation left), the plugin atomically replaces one `AGENT_DONE` marker in a configurable directory.
 
-Marker filenames are `AGENT_DONE.<unique-suffix>`. The unique suffix lets concurrent Pi sessions share a marker directory without clobbering each other's events. Each marker's contents are a plain-text session label — the current Pi session name when set, otherwise the session ID.
+The marker contains a short metadata record identifying the latest writer: the event, session name, and session ID. Repeated settled events coalesce while a marker is pending, so an unattended directory cannot accumulate one file per turn. The metadata identifies the latest writer only.
 
-The included script `./watch-and-notify.sh` watches the marker directory and sends Linux OS notifications (via `notify-send`) when files are created. It strips the unique suffix from the filename, displays the logical event together with the session label, then deletes the marker.
+The included script `./watch-and-notify.sh` watches the marker directory and sends Linux OS notifications (via `notify-send`) when the marker is published. It claims the marker before reading and deleting it, so a concurrent completion can publish the next marker safely. Legacy `AGENT_DONE.<suffix>` markers are still consumed and removed.
 
 ### Supported Events
 
@@ -30,7 +30,7 @@ The included script `./watch-and-notify.sh` watches the marker directory and sen
 | ------------- | --------------- | ------------- | ----------------------------------------------------------------- |
 | Agent settled | `agent_settled` | `AGENT_DONE`  | Pi has no retry, compaction recovery, or queued continuation left |
 
-One marker is created per settled turn, so a multi-turn run produces one marker per turn.
+Settled events are coalesced while a marker is pending; with the watcher running, each marker publication normally produces one notification.
 
 ## Installation
 
@@ -75,6 +75,8 @@ If you want desktop notifications when an agent run settles:
 1. Start Pi in the container with `PI_NOTIFY_MARKER_DIR` pointing at a host-mounted directory.
 2. Run `watch-and-notify.sh` from the host with `PI_NOTIFY_MARKER_WATCH_DIR` pointing at the same directory.
 
+The extension and watcher share one pending marker. If the watcher is offline, later settled events replace the metadata rather than creating additional files; the next notification identifies the latest writer.
+
 ## Requirements
 
 - A Pi version that supports the `agent_settled` event (0.80.10 or later).
@@ -95,7 +97,7 @@ The extension registers three slash commands:
 Pause state is per Pi session and persisted in the session itself:
 
 - An explicit pause or unpause survives `/reload` and `/resume`.
-- New sessions and forks start from the configured default (see `PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT`).
+- New sessions and forks start from the configured default (see the `pi-notify-marker` settings namespace and `PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT`).
 - Forks that inherit an explicit override reset to the default and persist the reset, so a later reload cannot resurrect the parent's operational preference.
 
 `/notify-marker:status` reports one of:
@@ -109,7 +111,21 @@ Command feedback is shown via Pi UI notifications (visible in the TUI and over R
 
 ## Configuration
 
-The plugin and watcher are configured through the process, shell, or container environment. Pi does not provide a settings-file environment map.
+The extension's pause default uses Pi's normal settings files. The watcher and marker directory remain process or shell configuration because they may refer to different sides of a container boundary.
+
+Add the `pi-notify-marker` namespace to global `~/.pi/agent/settings.json` or to a trusted project's `<project>/.pi/settings.json`:
+
+```json
+{
+  "pi-notify-marker": {
+    "pausedByDefault": true
+  }
+}
+```
+
+Project settings override the global value. Set `pausedByDefault` to `true` to start sessions paused; `false` or an omitted value means active. Changes apply after `/reload` or a restart. Invalid values produce a warning and use the lower-priority environment fallback or active default.
+
+The existing `PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT` environment variable remains supported as a process-level override. Recognized truthy values (case-insensitive, surrounding whitespace trimmed) are `1`, `true`, `yes`, and `on`; any other value means active. When set, the environment value takes precedence over settings.
 
 ```bash
 # Custom marker directory (extension side, inside the container)
@@ -117,18 +133,6 @@ PI_NOTIFY_MARKER_DIR="/path/to/some/dir" pi
 
 # Same directory, host side, for the watcher
 PI_NOTIFY_MARKER_WATCH_DIR="/path/to/some/dir" ./watch-and-notify.sh
-```
-
-### Pause by default
-
-`PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT` controls the state sessions start in when there is no explicit override. Recognized truthy values (case-insensitive, surrounding whitespace trimmed): `1`, `true`, `yes`, `on`. Any other value, including unset and empty, means active.
-
-```bash
-# Default active (default)
-pi
-
-# Default paused: each session must be explicitly unpaused before markers are emitted
-PI_NOTIFY_MARKER_PAUSED_BY_DEFAULT=1 pi
 ```
 
 An explicit `/notify-marker:pause` always suppresses and an explicit `/notify-marker:unpause` always emits, regardless of the configured default.

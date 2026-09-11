@@ -12,7 +12,6 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { randomUUID } from "node:crypto";
 
 const SCRIPT = join(process.cwd(), "watch-and-notify.sh");
 
@@ -37,7 +36,7 @@ let fakeBin: string;
 let notifyRecord: string;
 let children: ChildProcessWithoutNullStreams[];
 
-const COREUTILS = ["cat", "date", "rm", "mkdir", "basename", "sleep"];
+const COREUTILS = ["cat", "date", "rm", "mkdir", "basename", "mv", "sleep"];
 
 beforeEach(async () => {
   markerDir = await mkdtemp(join(tmpdir(), "pnm-watch-"));
@@ -160,9 +159,11 @@ describe("watch-and-notify.sh", () => {
       "inotifywait",
       `#!/bin/bash
 DIR="\${@: -1}"
-uuid="$(cat /proc/sys/kernel/random/uuid 2>/dev/null || echo fake-$$ )"
-file="AGENT_DONE.$uuid"
-printf '%s' 'inotify-test-session' > "$DIR/$file"
+file="AGENT_DONE"
+printf '%s\\n' \\
+  'Event: AGENT_DONE' \\
+  'Session: inotify-test-session' \\
+  'Session ID: test-session-id' > "$DIR/$file"
 printf '%s\\n' "$file"
 exit 0
 `,
@@ -180,22 +181,22 @@ exit 0
     const records = await readNotifyRecord();
     assert.equal(records.length, 1);
     assert.equal(records[0].title, "Pi event handler");
-    assert.match(records[0].body, /Event: AGENT_DONE\b/);
-    assert.ok(
-      !/AGENT_DONE\.[0-9a-f-]{36}/.test(records[0].body),
-      "suffix must not appear in event",
-    );
-    assert.match(records[0].body, /Session: inotify-test-session/);
+    assert.match(records[0].body, /^Event: AGENT_DONE$/m);
+    assert.match(records[0].body, /^Session: inotify-test-session$/m);
+    assert.match(records[0].body, /^Session ID: test-session-id$/m);
     const remaining = await readdir(markerDir);
+    assert.ok(!remaining.includes("AGENT_DONE"), "marker must be claimed");
     assert.ok(
-      !remaining.some((f) => f.startsWith("AGENT_DONE.")),
-      "marker must be deleted after notification",
+      !remaining.some((f) => f.startsWith(".AGENT_DONE.claim.")),
+      "claimed marker must be deleted after notification",
     );
   });
 
   it("startup cleanup removes existing markers but preserves dotfiles", async () => {
+    await writeFile(join(markerDir, "AGENT_DONE"), "old");
     await writeFile(join(markerDir, "AGENT_DONE.preexisting"), "old");
     await writeFile(join(markerDir, ".keep"), "keepme");
+    await writeFile(join(markerDir, "unrelated.txt"), "keepme");
     await writeFakeBin(
       "inotifywait",
       `#!/bin/bash
@@ -215,9 +216,13 @@ exit 0
     await waitUntil(
       async () =>
         existsSync(join(markerDir, ".keep")) &&
+        existsSync(join(markerDir, "unrelated.txt")) &&
+        !existsSync(join(markerDir, "AGENT_DONE")) &&
         !existsSync(join(markerDir, "AGENT_DONE.preexisting")),
     );
     assert.ok(existsSync(join(markerDir, ".keep")));
+    assert.ok(existsSync(join(markerDir, "unrelated.txt")));
+    assert.ok(!existsSync(join(markerDir, "AGENT_DONE")));
     assert.ok(!existsSync(join(markerDir, "AGENT_DONE.preexisting")));
   });
 
@@ -232,19 +237,23 @@ exit 0
     const env = watcherEnv({ withSystemBin: false });
     const child = spawnWatcher(env);
     await waitForStdout(child, "using polling fallback", 5000);
-    const uuid = randomUUID();
-    const file = `AGENT_DONE.${uuid}`;
-    await writeFile(join(markerDir, file), "poll-session");
+    const file = "AGENT_DONE";
+    await writeFile(
+      join(markerDir, file),
+      "Event: AGENT_DONE\nSession: poll-session\nSession ID: poll-session-id\n",
+    );
     await waitUntil(async () => (await readNotifyRecord()).length >= 1, 10000);
     const records = await readNotifyRecord();
     assert.equal(records.length, 1);
     assert.equal(records[0].title, "Pi event handler");
-    assert.match(records[0].body, /Event: AGENT_DONE\b/);
+    assert.match(records[0].body, /Event: AGENT_DONE/);
     assert.match(records[0].body, /Session: poll-session/);
+    assert.match(records[0].body, /Session ID: poll-session-id/);
     const remaining = await readdir(markerDir);
+    assert.ok(!remaining.includes("AGENT_DONE"));
     assert.ok(
-      !remaining.some((f) => f.startsWith("AGENT_DONE.")),
-      "marker must be deleted after notification",
+      !remaining.some((f) => f.startsWith(".AGENT_DONE.claim.")),
+      "claimed marker must be deleted after notification",
     );
   });
 

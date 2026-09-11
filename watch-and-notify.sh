@@ -19,45 +19,61 @@ if command -v flock &>/dev/null; then
   fi
 fi
 
-# Strip the unique suffix from a marker filename to get the logical event.
+# Strip the unique suffix from a legacy marker filename to get the logical event.
 # "AGENT_DONE.abc" -> "AGENT_DONE"; "AGENT_DONE" -> "AGENT_DONE".
 marker_event() {
   printf '%s' "${1%%.*}"
 }
 
-# Read a marker's session label. Fall back to "unknown" if empty or unreadable.
-read_label() {
-  local path="$1"
-  local label
-  label="$(cat -- "$path" 2>/dev/null)"
-  if [ -n "$label" ]; then
-    printf '%s' "$label"
-  else
-    printf '%s' "unknown"
-  fi
+is_marker_name() {
+  case "$1" in
+    AGENT_DONE|AGENT_DONE.*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
-# Consume one marker: notify with the logical event + session label, then delete it.
-consume_marker() {
+# Move a marker out of the shared name before reading it. A concurrent write can
+# then publish the next marker without being removed by this notification.
+claim_marker() {
   local file="$1"
   local path="$PI_NOTIFY_MARKER_WATCH_DIR/$file"
-  local event
-  local label
-  event="$(marker_event "$file")"
-  label="$(read_label "$path")"
-  notify-send -t 15000 "Pi event handler" "Session: $label
-
-Event: $event
-
-Timestamp: $(date --iso-8601=seconds)"
-  rm -f -- "$path"
+  local claim="$PI_NOTIFY_MARKER_WATCH_DIR/.AGENT_DONE.claim.$$.$RANDOM"
+  if [ ! -f "$path" ]; then
+    return 1
+  fi
+  if ! mv -- "$path" "$claim" 2>/dev/null; then
+    return 1
+  fi
+  printf '%s' "$claim"
 }
 
-# Remove non-dot regular marker files already present on startup.
+# Consume one marker: claim it, notify with its metadata, then delete the claim.
+consume_marker() {
+  local file="$1"
+  local claim
+  local metadata
+  claim="$(claim_marker "$file")" || return 0
+  metadata="$(cat -- "$claim" 2>/dev/null)" || metadata=""
+  if [ -z "$metadata" ]; then
+    metadata="Event: $(marker_event "$file")
+Session: unknown"
+  elif [[ "$metadata" != Event:* ]]; then
+    metadata="Event: $(marker_event "$file")
+Session: $metadata"
+  fi
+  notify-send -t 15000 "Pi event handler" "$metadata"
+  rm -f -- "$claim"
+}
+
+# Remove this extension's marker and temporary files already present on startup.
 remove_existing_markers() {
   local count=0
   shopt -s nullglob
-  for file in "$PI_NOTIFY_MARKER_WATCH_DIR"/*; do
+  for file in \
+    "$PI_NOTIFY_MARKER_WATCH_DIR/AGENT_DONE" \
+    "$PI_NOTIFY_MARKER_WATCH_DIR/AGENT_DONE."* \
+    "$PI_NOTIFY_MARKER_WATCH_DIR/.AGENT_DONE.tmp."* \
+    "$PI_NOTIFY_MARKER_WATCH_DIR/.AGENT_DONE.claim."*; do
     if [ -f "$file" ]; then
       count=$((count + 1))
       rm -f -- "$file"
@@ -74,20 +90,19 @@ remove_existing_markers
 
 if command -v inotifywait &>/dev/null; then
   echo "Using inotifywait to watch files."
-  inotifywait -m -e close_write --format '%f' "$PI_NOTIFY_MARKER_WATCH_DIR" | while read -r file; do
-    # Ignore dotfiles (including our own .watcher.lock).
-    case "$file" in
-      .*) continue ;;
-    esac
-    consume_marker "$file"
+  inotifywait -m -e close_write,moved_to --format '%f' "$PI_NOTIFY_MARKER_WATCH_DIR" | while read -r file; do
+    if is_marker_name "$file"; then
+      consume_marker "$file"
+    fi
   done
 else
   echo "inotifywait not found, using polling fallback..."
   while true; do
     shopt -s nullglob
     for file in "$PI_NOTIFY_MARKER_WATCH_DIR"/*; do
-      if [ -f "$file" ]; then
-        consume_marker "$(basename "$file")"
+      local_name="$(basename -- "$file")"
+      if [ -f "$file" ] && is_marker_name "$local_name"; then
+        consume_marker "$local_name"
       fi
     done
     shopt -u nullglob
